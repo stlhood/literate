@@ -32,6 +32,11 @@ class NarrativeParser:
         # Clean up markdown formatting
         cleaned_text = self._clean_response_text(response_text)
         
+        # Check for placeholder responses that should be rejected entirely
+        if self._is_placeholder_response(cleaned_text):
+            print("Detected placeholder response, returning empty list")
+            return []
+        
         # Parse JSON
         try:
             response_data = json.loads(cleaned_text)
@@ -48,7 +53,10 @@ class NarrativeParser:
             response_data = self.validator.sanitize_response(response_data)
         
         # Convert to NarrativeObjects
-        return self._convert_to_objects(response_data)
+        objects = self._convert_to_objects(response_data)
+        
+        # Final filter for quality
+        return self._filter_quality_objects(objects)
     
     def _clean_response_text(self, response_text: str) -> str:
         """Clean up response text by removing markdown formatting."""
@@ -139,6 +147,45 @@ class NarrativeParser:
             objects.append(obj)
         
         return objects
+    
+    def _is_placeholder_response(self, response_text: str) -> bool:
+        """Check if response contains only placeholder content."""
+        # Check for responses that are just the example format
+        placeholder_indicators = [
+            '"name": "string"',
+            '"description": "string"',
+            'ExactNameFromText',
+            'Brief description based only on what the text says'
+        ]
+        
+        for indicator in placeholder_indicators:
+            if indicator in response_text:
+                return True
+        
+        return False
+    
+    def _filter_quality_objects(self, objects: List[NarrativeObject]) -> List[NarrativeObject]:
+        """Filter out low-quality objects."""
+        quality_objects = []
+        
+        for obj in objects:
+            # Skip objects with placeholder or generic content
+            if (obj.name.lower() in ['string', 'name', 'object'] or 
+                obj.description.lower() in ['string', 'description'] or
+                len(obj.name.strip()) < 2 or
+                len(obj.description.strip()) < 5):
+                continue
+                
+            # Check for title case proper names (more likely to be real names)
+            is_proper_name = (obj.name[0].isupper() and 
+                             not obj.name.lower().startswith('the ') and
+                             not obj.name.lower() in ['person', 'character', 'object'])
+            
+            # Keep objects that look like proper names or specific places/things
+            if is_proper_name or any(word in obj.name.lower() for word in ['library', 'castle', 'park', 'school', 'book', 'sword', 'map']):
+                quality_objects.append(obj)
+        
+        return quality_objects
     
     def validate_relationships(self, objects: List[NarrativeObject]) -> List[NarrativeObject]:
         """

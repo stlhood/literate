@@ -11,16 +11,19 @@ from narrative_parser import NarrativeParser
 class LLMClient:
     """Client for interacting with Ollama API server."""
     
-    def __init__(self, base_url: str = "http://localhost:11434", model: str = "gemma3:270m"):
+    def __init__(self, base_url: str = "http://localhost:11434", model: str = "gemma3:1b", 
+                 temperature: float = 0.1):
         """
         Initialize the LLM client.
         
         Args:
             base_url: The base URL for the Ollama server
             model: The model name to use for generation
+            temperature: Sampling temperature (0.0-1.0, lower = more deterministic)
         """
         self.base_url = base_url.rstrip('/')
         self.model = model
+        self.temperature = temperature
         self.timeout = 30  # seconds
         self.parser = NarrativeParser()
     
@@ -66,13 +69,14 @@ Return valid JSON with this structure:
   ]
 }}
 
-RULES:
-- Only extract people, places, or objects directly mentioned in the text
-- Use the exact names from the text (e.g., if text says "Alice", use "Alice")  
-- Descriptions must be based only on information in the text
-- Never use generic names like "person", "object", "character"
-- Never use placeholder descriptions like "One sentence description"
-- If no clear relationships exist, use empty relationships array
+STRICT RULES:
+- ONLY extract entities with specific names mentioned in the text
+- Do NOT extract unnamed people (like "the detective", "a woman", "someone")
+- Do NOT invent names for unnamed characters or objects
+- Use exact names from text (e.g., if text says "Alice", use "Alice")
+- If a person/thing has no name in the text, skip it entirely
+- Descriptions must only state facts from the text
+- Never use generic names like "person", "object", "character", "detective"
 
 Return only the JSON:"""
     
@@ -91,7 +95,14 @@ Return only the JSON:"""
         payload = {
             "model": self.model,
             "prompt": prompt,
-            "stream": False
+            "stream": False,
+            "options": {
+                "temperature": self.temperature,  # Configurable temperature
+                "top_k": 10,         # Limit to top 10 most likely tokens
+                "top_p": 0.3,        # Use nucleus sampling with low probability mass
+                "repeat_penalty": 1.1,  # Slight penalty for repetition
+                "num_predict": 500   # Limit response length
+            }
         }
         
         try:

@@ -11,6 +11,8 @@ from rich.panel import Panel
 from rich.console import Group
 from typing import List
 import asyncio
+import signal
+import sys
 from datetime import datetime
 from models import NarrativeObject
 from object_manager import ObjectManager
@@ -30,16 +32,22 @@ class LiterateApp(App):
         self.debounce_task = None
         self.last_text = ""
         self.is_processing = False
+        self._setup_signal_handlers()
     
     CSS = """
     Screen {
         layout: horizontal;
+        background: $surface;
     }
     
     #text_input_container {
         width: 50%;
         height: 100%;
-        border: solid $primary;
+        border: thick $primary 60%;
+        background: $panel;
+        border-title-color: $primary;
+        border-title-background: $surface;
+        border-title-style: bold;
     }
     
     #right_container {
@@ -50,35 +58,52 @@ class LiterateApp(App):
     
     #objects_container {
         height: 80%;
-        border: solid $secondary;
+        border: thick $success 80%;
+        background: $panel;
+        border-title-color: $success;
+        border-title-background: $surface;
+        border-title-style: bold;
     }
     
     #error_container {
         height: 20%;
-        border: solid $warning;
+        border: thick $accent 60%;
+        background: $panel;
+        border-title-color: $accent;
+        border-title-background: $surface;
+        border-title-style: bold;
     }
     
     #text_input {
         height: 100%;
         width: 100%;
+        background: $surface;
+        color: $text;
     }
     
     #objects_display {
         height: 100%;
         width: 100%;
         padding: 1;
+        background: $surface;
+        scrollbar-background: $panel;
+        scrollbar-color: $primary;
     }
     
     #error_display {
         height: 100%;
         width: 100%;
         padding: 1;
+        background: $surface;
+        scrollbar-background: $panel;
+        scrollbar-color: $accent;
     }
     
     .object_item {
         margin: 1 0;
         padding: 1;
         background: $boost;
+        border: round $primary 30%;
     }
     
     .object_name {
@@ -87,22 +112,47 @@ class LiterateApp(App):
     }
     
     .object_description {
-        color: $text;
+        color: $text-muted;
         margin: 0 0 1 0;
+        text-style: italic;
     }
     
     .relationship {
-        color: $secondary;
+        color: $success;
         text-style: italic;
         margin-left: 2;
     }
     
     .panel_title {
         text-style: bold;
-        color: $primary;
+        color: white;
         text-align: center;
         height: 1;
-        background: $surface;
+        background: $primary;
+        padding: 0 1;
+    }
+    
+    .status_processing {
+        color: $warning;
+        text-style: bold blink;
+    }
+    
+    .status_success {
+        color: $success;
+        text-style: bold;
+    }
+    
+    .status_error {
+        color: $error;
+        text-style: bold;
+    }
+    
+    .stats_display {
+        color: $accent;
+        text-style: italic;
+        background: $boost;
+        padding: 0 1;
+        margin: 1 0;
     }
     """
     
@@ -145,9 +195,39 @@ class LiterateApp(App):
             # Fallback if UI not ready yet
             pass
     
+    def _setup_signal_handlers(self) -> None:
+        """Setup signal handlers for graceful exit."""
+        def signal_handler(signum, frame):
+            """Handle SIGINT (Ctrl+C) gracefully."""
+            self._graceful_exit()
+        
+        # Register signal handler for SIGINT (Ctrl+C)
+        signal.signal(signal.SIGINT, signal_handler)
+    
+    def _graceful_exit(self) -> None:
+        """Perform graceful shutdown."""
+        try:
+            # Cancel any pending debounce task
+            if self.debounce_task and not self.debounce_task.done():
+                self.debounce_task.cancel()
+            
+            # Show exit message
+            self.show_message("🔄 Shutting down gracefully...", "info")
+            
+            # Save any pending data (if needed)
+            if hasattr(self.object_manager, 'save_file') and self.object_manager.save_file:
+                self.object_manager.save_to_file(self.object_manager.save_file)
+                self.show_message("💾 Data saved", "success")
+            
+        except Exception as e:
+            print(f"Error during shutdown: {e}")
+        finally:
+            # Exit the application
+            self.exit()
+    
     def action_quit(self) -> None:
         """Action to quit the application."""
-        self.exit()
+        self._graceful_exit()
     
     def show_message(self, message: str, msg_type: str = "info") -> None:
         """
@@ -163,26 +243,31 @@ class LiterateApp(App):
             # UI not ready yet, skip message
             return
         
-        # Color based on message type
-        if msg_type == "error":
-            color = "red"
-            icon = "❌"
-        elif msg_type == "warning":
-            color = "yellow"
-            icon = "⚠️"
-        elif msg_type == "success":
-            color = "green"
-            icon = "✅"
-        else:  # info
-            color = "blue"
-            icon = "ℹ️"
+        from datetime import datetime
+        timestamp = datetime.now().strftime("%H:%M:%S")
         
-        formatted_message = f"[{color}]{icon} {message}[/{color}]"
+        # Enhanced styling based on message type
+        if msg_type == "error":
+            icon = "🔴"
+            style_class = "status_error"
+            formatted_message = f"[dim]{timestamp}[/dim] [{style_class}]{icon} {message}[/{style_class}]"
+        elif msg_type == "warning":
+            icon = "🟡"
+            style_class = "status_processing"
+            formatted_message = f"[dim]{timestamp}[/dim] [{style_class}]{icon} {message}[/{style_class}]"
+        elif msg_type == "success":
+            icon = "🟢"
+            style_class = "status_success"
+            formatted_message = f"[dim]{timestamp}[/dim] [{style_class}]{icon} {message}[/{style_class}]"
+        else:  # info
+            icon = "🔵"
+            formatted_message = f"[dim]{timestamp}[/dim] [blue]{icon} {message}[/blue]"
+        
         error_log.write(formatted_message)
     
     def update_objects_display(self, objects: List[NarrativeObject]) -> None:
         """
-        Update the objects display panel.
+        Update the objects display panel with enhanced formatting and performance optimization.
         
         Args:
             objects: List of narrative objects to display
@@ -191,29 +276,57 @@ class LiterateApp(App):
         objects_log.clear()
         
         if not objects:
-            objects_log.write("[dim]No objects extracted yet.[/dim]")
+            objects_log.write("[dim italic]✨ No narrative objects found yet...[/dim italic]")
+            objects_log.write("[dim]Type some text to begin analysis![/dim]")
             return
         
         # Sort objects by last updated (most recent first)
         sorted_objects = sorted(objects, key=lambda x: x.last_updated, reverse=True)
         
-        objects_log.write(f"[bold cyan]Found {len(objects)} narrative objects:[/bold cyan]\n")
+        # Performance optimization: Limit display to prevent UI slowdown
+        max_display_objects = 20
+        display_objects = sorted_objects[:max_display_objects]
+        hidden_count = len(sorted_objects) - len(display_objects)
         
-        for i, obj in enumerate(sorted_objects, 1):
-            # Object header
-            objects_log.write(f"[bold blue]{i}. {obj.name}[/bold blue]")
+        # Header with stats
+        total_relationships = sum(len(obj.relationships) for obj in objects)
+        objects_log.write(f"[bold $primary]📚 Narrative Objects ({len(objects)})[/bold $primary]")
+        objects_log.write(f"[dim]🔗 {total_relationships} relationships found[/dim]")
+        
+        if hidden_count > 0:
+            objects_log.write(f"[dim italic]Showing most recent {len(display_objects)} of {len(objects)} objects[/dim italic]")
+        objects_log.write("")
+        
+        for i, obj in enumerate(display_objects, 1):
+            # Object card with rounded border effect
+            objects_log.write(f"[bold $success]┌─ {i}. {obj.name}[/bold $success]")
             
-            # Description
-            objects_log.write(f"   [dim]{obj.description}[/dim]")
+            # Description with better formatting (truncate if too long)
+            description = obj.description
+            if len(description) > 120:
+                description = description[:117] + "..."
+            objects_log.write(f"[dim]│[/dim] [italic $text-muted]{description}[/italic $text-muted]")
             
-            # Relationships
+            # Relationships with tree structure (limit to prevent clutter)
             if obj.relationships:
-                objects_log.write(f"   [bold]Relationships:[/bold]")
-                for rel in obj.relationships:
-                    objects_log.write(f"   [green]→[/green] [italic]{rel.target}[/italic]: {rel.description}")
+                objects_log.write(f"[dim]│[/dim] [bold $accent]Relationships:[/bold $accent]")
+                display_rels = obj.relationships[:3]  # Show max 3 relationships
+                hidden_rels = len(obj.relationships) - len(display_rels)
+                
+                for j, rel in enumerate(display_rels):
+                    is_last = j == len(display_rels) - 1 and hidden_rels == 0
+                    connector = "└" if is_last else "├"
+                    objects_log.write(f"[dim]│ {connector}─[/dim] [bold $primary]{rel.target}[/bold $primary]: [italic]{rel.description}[/italic]")
+                
+                if hidden_rels > 0:
+                    objects_log.write(f"[dim]│ └─[/dim] [dim italic]... and {hidden_rels} more relationships[/dim italic]")
+            
+            # Timestamp
+            time_str = obj.last_updated.strftime("%H:%M:%S")
+            objects_log.write(f"[dim]└─ Updated: {time_str}[/dim]")
             
             # Add spacing between objects
-            if i < len(sorted_objects):
+            if i < len(display_objects):
                 objects_log.write("")
     
     def get_input_text(self) -> str:
@@ -232,7 +345,7 @@ class LiterateApp(App):
         text_area.text = text
     
     def on_text_area_changed(self, event: TextArea.Changed) -> None:
-        """Handle text area change events with debouncing."""
+        """Handle text area change events with debouncing and performance optimization."""
         if event.text_area.id != "text_input":
             return
         
@@ -254,8 +367,14 @@ class LiterateApp(App):
             self.show_message("Enter text to begin analysis...", "info")
             return
         
-        # Show that we're waiting for more input
-        self.show_message(f"Text changed... waiting {self.DEBOUNCE_SECONDS}s for more input", "info")
+        # Performance optimization: Check text length
+        text_length = len(current_text)
+        if text_length > 5000:
+            self.show_message(f"⚠️ Large text ({text_length} chars) - processing may take longer", "warning")
+        elif text_length > 2000:
+            self.show_message(f"📝 Processing {text_length} characters...", "info")
+        else:
+            self.show_message(f"Text changed... waiting {self.DEBOUNCE_SECONDS}s for more input", "info")
         
         # Schedule new debounce task
         self.debounce_task = asyncio.create_task(self._debounced_process_text(current_text))
@@ -331,36 +450,75 @@ class LiterateApp(App):
             raise Exception(f"LLM call failed: {e}")
     
     def _update_ui_from_result(self, result: dict) -> None:
-        """Update UI based on processing result."""
+        """Update UI based on processing result with enhanced feedback and animation."""
         if result["success"]:
             objects = result["objects"]
             stats = result["stats"]
             
-            # Update object display
-            self.update_objects_display(objects)
-            
-            # Show success message with stats
+            # Animation: Show transition message
             added = stats["added"]
             updated = stats["updated"] 
             removed = stats["removed"]
             total = result["total_count"]
             
-            message = f"✅ Analysis complete: {total} objects ({added} added, {updated} updated, {removed} removed)"
+            if added > 0 or updated > 0 or removed > 0:
+                self.show_message("✨ Updating narrative objects...", "info")
+                # Brief delay for visual effect
+                import time
+                time.sleep(0.1)
+            
+            # Update object display
+            self.update_objects_display(objects)
+            
+            # Enhanced success message with detailed stats
+            stats_parts = []
+            if added > 0:
+                stats_parts.append(f"+{added} new")
+            if updated > 0:
+                stats_parts.append(f"~{updated} updated") 
+            if removed > 0:
+                stats_parts.append(f"-{removed} removed")
+            
+            if stats_parts:
+                stats_text = " | ".join(stats_parts)
+                message = f"Analysis complete: {total} objects ({stats_text})"
+            else:
+                message = f"Analysis complete: {total} objects (no changes)"
+                
             self.show_message(message, "success")
+            
         else:
-            # Show error
+            # Show detailed error with suggestions
             error_msg = result.get("error", "Unknown error")
-            self.show_message(f"❌ Analysis failed: {error_msg}", "error")
+            
+            # Provide helpful error context
+            if "connection" in error_msg.lower():
+                suggestion = "Check that Ollama server is running"
+            elif "json" in error_msg.lower():
+                suggestion = "LLM response format issue - try different text"
+            else:
+                suggestion = "Try simpler text or restart the application"
+                
+            self.show_message(f"Analysis failed: {error_msg}", "error")
+            self.show_message(f"💡 Suggestion: {suggestion}", "warning")
             
             # Still update display with current objects
             self.update_objects_display(result["objects"])
     
     def _show_loading_indicator(self) -> None:
-        """Show loading indicator in objects display."""
+        """Show enhanced loading indicator in objects display."""
         try:
             objects_log = self.query_one("#objects_display", RichLog)
-            objects_log.write("[bold yellow]🔄 Processing with LLM...[/bold yellow]")
-            objects_log.write("[dim]Please wait while we extract narrative objects...[/dim]")
+            objects_log.clear()
+            
+            # Animated loading display
+            objects_log.write("[bold $warning]⚡ Processing with LLM...[/bold $warning]")
+            objects_log.write("[dim]┌─ Analyzing narrative structure...[/dim]")
+            objects_log.write("[dim]├─ Extracting characters and objects...[/dim]") 
+            objects_log.write("[dim]├─ Identifying relationships...[/dim]")
+            objects_log.write("[dim]└─ Generating results...[/dim]")
+            objects_log.write("")
+            objects_log.write("[italic dim]🤖 Please wait while the AI processes your text...[/italic dim]")
         except:
             # UI not ready, skip
             pass

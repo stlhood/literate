@@ -191,7 +191,12 @@ class SchemaValidator:
         if name is None or not isinstance(name, str):
             return None
         name = name.strip()
-        if not name or len(name) > 100 or name.lower() in ['string', 'exactnamefromtext', 'object', 'person', 'character']:
+        # Filter out generic names and unnamed character types
+        forbidden_names = ['string', 'exactnamefromtext', 'object', 'person', 'character', 
+                          'detective', 'librarian', 'woman', 'man', 'someone', 'people',
+                          'the detective', 'the librarian', 'the woman', 'the man']
+        
+        if not name or len(name) > 100 or name.lower() in forbidden_names:
             return None
         
         # Extract and validate description
