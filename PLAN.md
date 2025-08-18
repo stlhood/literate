@@ -21,14 +21,14 @@ Build a Python TUI application that extracts narrative objects from free text us
 ## Implementation Tasks
 
 ### Phase 1: Environment Setup and LLM Integration Testing ✅ = Complete
-- [ ] 1.1: Set up Python virtual environment
-- [ ] 1.2: Create basic project structure (main.py, requirements.txt)
-- [ ] 1.3: Install initial dependencies (requests, typing)
-- [ ] 1.4: Create LLM client class for Ollama API calls
-- [ ] 1.5: Design and test LLM prompt for narrative extraction
-- [ ] 1.6: Test basic LLM connectivity and response parsing
-- [ ] 1.7: Handle LLM errors and timeouts gracefully
-- [ ] 1.8: Validate that gemma3:270m model returns expected JSON schema
+- [x] 1.1: Set up Python virtual environment
+- [x] 1.2: Create basic project structure (main.py, requirements.txt)
+- [x] 1.3: Install initial dependencies (requests, typing)
+- [x] 1.4: Create LLM client class for Ollama API calls
+- [x] 1.5: Design and test LLM prompt for narrative extraction
+- [x] 1.6: Test basic LLM connectivity and response parsing
+- [x] 1.7: Handle LLM errors and timeouts gracefully
+- [x] 1.8: Validate that gemma3:270m model returns expected JSON schema
 
 ### Phase 2: Data Models and Object Management
 - [ ] 2.1: Define NarrativeObject and Relationship data classes
