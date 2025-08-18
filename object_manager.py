@@ -196,3 +196,40 @@ class ObjectManager:
                 "first_seen": newest.first_seen.isoformat()
             }
         }
+    
+    def replace_object(self, old_name: str, new_object: NarrativeObject) -> Dict[str, Any]:
+        """
+        Replace a specific object with a corrected version.
+        
+        Args:
+            old_name: Name of the object to replace
+            new_object: New object to replace it with
+            
+        Returns:
+            Result dictionary with success status and stats
+        """
+        # Check if old object exists
+        if old_name not in self.collection.objects:
+            return {
+                "success": False,
+                "error": f"Object '{old_name}' not found",
+                "objects": list(self.collection.objects.values()),
+                "total_count": len(self.collection.objects),
+                "stats": {"added": 0, "updated": 0, "unchanged": 0, "removed": 0}
+            }
+        
+        # Remove old object and add new one
+        self.collection.remove(old_name)
+        self.collection.add_or_update(new_object)
+        
+        # Save if needed
+        if self.save_file:
+            self.save_to_file(self.save_file)
+        
+        return {
+            "success": True,
+            "objects": list(self.collection.objects.values()),
+            "total_count": len(self.collection.objects),
+            "stats": {"added": 0, "updated": 1, "unchanged": 0, "removed": 0},
+            "error": None
+        }

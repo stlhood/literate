@@ -6,6 +6,7 @@ from textual.widgets import TextArea, Static, RichLog
 from textual.containers import Horizontal, Vertical, ScrollableContainer
 from textual.screen import Screen
 from textual.message import Message
+from textual.events import Click, Key
 from rich.text import Text
 from rich.panel import Panel
 from rich.console import Group
@@ -32,6 +33,8 @@ class LiterateApp(App):
         self.debounce_task = None
         self.last_text = ""
         self.is_processing = False
+        self.current_input_text = ""  # Store for retry functionality
+        self.displayed_objects = []  # Store currently displayed objects for retry
         self._setup_signal_handlers()
     
     CSS = """
@@ -229,6 +232,78 @@ class LiterateApp(App):
         """Action to quit the application."""
         self._graceful_exit()
     
+    async def action_retry_object(self, object_name: str) -> None:
+        """Action to retry a specific narrative object."""
+        await self._retry_narrative_object(object_name)
+    
+    async def _retry_narrative_object(self, object_name: str) -> None:
+        """Retry extraction for a specific narrative object."""
+        if not self.current_input_text.strip():
+            self.show_message("No input text available for retry", "warning")
+            return
+        
+        if self.is_processing:
+            self.show_message("Cannot retry while processing - please wait", "warning")
+            return
+        
+        self.show_message(f"🔄 Correcting object '{object_name}'...", "info")
+        self.is_processing = True
+        
+        try:
+            # Call LLM for correction in thread pool
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                loop = asyncio.get_event_loop()
+                
+                corrected_object = await loop.run_in_executor(
+                    executor,
+                    self.llm_client.correct_narrative_object,
+                    object_name,
+                    self.current_input_text
+                )
+                
+                if corrected_object:
+                    # Replace the object
+                    result = self.object_manager.replace_object(object_name, corrected_object)
+                    
+                    if result["success"]:
+                        # Update display
+                        self.update_objects_display(result["objects"])
+                        self.show_message(f"✅ Object '{object_name}' corrected to '{corrected_object.name}'", "success")
+                    else:
+                        self.show_message(f"❌ Failed to replace object: {result['error']}", "error")
+                else:
+                    self.show_message(f"❌ Could not generate correction for '{object_name}'", "error")
+        
+        except Exception as e:
+            self.show_message(f"❌ Error during retry: {e}", "error")
+        finally:
+            self.is_processing = False
+    
+    def on_key(self, event: Key) -> None:
+        """Handle key presses for retry functionality."""
+        # Check for retry pattern: r1, r2, r3, etc.
+        if event.key.startswith('r') and len(event.key) > 1:
+            try:
+                # Extract number from key (e.g., 'r1' -> 1)
+                object_index = int(event.key[1:]) - 1  # Convert to 0-based index
+                
+                # Check if we have that many displayed objects
+                if 0 <= object_index < len(self.displayed_objects):
+                    object_name = self.displayed_objects[object_index].name
+                    # Create task for retry action
+                    asyncio.create_task(self._retry_narrative_object(object_name))
+                    event.prevent_default()
+                else:
+                    self.show_message(f"No object at position {object_index + 1}", "warning")
+            except ValueError:
+                # Not a valid retry key
+                pass
+        
+        # Let other keys be handled normally if not a retry key
+        if not (event.key.startswith('r') and len(event.key) > 1):
+            return  # Don't prevent default for non-retry keys
+    
     def show_message(self, message: str, msg_type: str = "info") -> None:
         """
         Display a message in the error panel.
@@ -288,6 +363,9 @@ class LiterateApp(App):
         display_objects = sorted_objects[:max_display_objects]
         hidden_count = len(sorted_objects) - len(display_objects)
         
+        # Store displayed objects for retry functionality
+        self.displayed_objects = display_objects
+        
         # Header with stats
         total_relationships = sum(len(obj.relationships) for obj in objects)
         objects_log.write(f"[bold $primary]📚 Narrative Objects ({len(objects)})[/bold $primary]")
@@ -298,8 +376,9 @@ class LiterateApp(App):
         objects_log.write("")
         
         for i, obj in enumerate(display_objects, 1):
-            # Object card with rounded border effect
-            objects_log.write(f"[bold $success]┌─ {i}. {obj.name}[/bold $success]")
+            # Object card with rounded border effect and retry link
+            # Use a simpler approach with keyboard shortcuts for now
+            objects_log.write(f"[bold $success]┌─ {i}. {obj.name}[/bold $success] [dim]([link=retry]🔄 press r{i} to retry[/link])[/dim]")
             
             # Description with better formatting (truncate if too long)
             description = obj.description
@@ -356,6 +435,7 @@ class LiterateApp(App):
             return
         
         self.last_text = current_text
+        self.current_input_text = current_text  # Store for retry functionality
         
         # Cancel existing debounce task
         if self.debounce_task:
