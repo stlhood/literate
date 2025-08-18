@@ -26,7 +26,12 @@ class LiterateApp(App):
     # Class variables for debouncing
     DEBOUNCE_SECONDS = 3.0
     
+    # Disable mouse tracking to prevent unwanted mouse interactions
+    ENABLE_COMMAND_PALETTE = False
+    
     def __init__(self, **kwargs):
+        # Disable mouse tracking
+        kwargs.setdefault('mouse', False)
         super().__init__(**kwargs)
         self.object_manager = ObjectManager()
         self.llm_client = LLMClient()
