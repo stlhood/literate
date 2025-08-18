@@ -91,7 +91,6 @@ class LiterateApp(App):
         background: $surface;
         scrollbar-background: $panel;
         scrollbar-color: $primary;
-        wrap: auto;
     }
     
     #error_display {
