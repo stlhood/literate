@@ -40,13 +40,13 @@ Build a Python TUI application that extracts narrative objects from free text us
 - [x] 2.7: Add comprehensive error handling for malformed responses
 
 ### Phase 3: TUI Framework Setup
-- [ ] 3.1: Research and select TUI library (Rich, Textual, or similar)
-- [ ] 3.2: Install TUI dependencies
-- [ ] 3.3: Create basic three-panel layout structure
-- [ ] 3.4: Implement text input panel with cursor management
-- [ ] 3.5: Create object display panel with formatting
-- [ ] 3.6: Add small error message panel
-- [ ] 3.7: Test basic TUI rendering and layout responsiveness
+- [x] 3.1: Research and select TUI library (Rich, Textual, or similar)
+- [x] 3.2: Install TUI dependencies
+- [x] 3.3: Create basic three-panel layout structure
+- [x] 3.4: Implement text input panel with cursor management
+- [x] 3.5: Create object display panel with formatting
+- [x] 3.6: Add small error message panel
+- [x] 3.7: Test basic TUI rendering and layout responsiveness
 
 ### Phase 4: Input Handling and Debouncing
 - [ ] 4.1: Implement text input capture and buffering
