@@ -29,9 +29,12 @@ class LiterateApp(App):
     # Disable mouse tracking to prevent unwanted mouse interactions
     ENABLE_COMMAND_PALETTE = False
     
+    @property
+    def mouse_enabled(self) -> bool:
+        """Disable mouse tracking."""
+        return False
+    
     def __init__(self, **kwargs):
-        # Disable mouse tracking
-        kwargs.setdefault('mouse', False)
         super().__init__(**kwargs)
         self.object_manager = ObjectManager()
         self.llm_client = LLMClient()
