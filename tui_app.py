@@ -193,6 +193,7 @@ class LiterateApp(App):
         # Initialize displays
         try:
             self.show_message("Ready to analyze text...", "info")
+            self.show_message("💡 Tip: Use Ctrl+1, Ctrl+2, etc. to retry individual objects", "info")
             self.update_objects_display([])
         except Exception as e:
             # Fallback if UI not ready yet
@@ -282,11 +283,12 @@ class LiterateApp(App):
     
     def on_key(self, event: Key) -> None:
         """Handle key presses for retry functionality."""
-        # Check for retry pattern: r1, r2, r3, etc.
-        if event.key.startswith('r') and len(event.key) > 1:
+        # Check for Ctrl+number combinations for retry
+        if event.key.startswith('ctrl+') and len(event.key) > 5:
             try:
-                # Extract number from key (e.g., 'r1' -> 1)
-                object_index = int(event.key[1:]) - 1  # Convert to 0-based index
+                # Extract number from key (e.g., 'ctrl+1' -> 1)
+                number_str = event.key[5:]  # Remove 'ctrl+' prefix
+                object_index = int(number_str) - 1  # Convert to 0-based index
                 
                 # Check if we have that many displayed objects
                 if 0 <= object_index < len(self.displayed_objects):
@@ -294,15 +296,13 @@ class LiterateApp(App):
                     # Create task for retry action
                     asyncio.create_task(self._retry_narrative_object(object_name))
                     event.prevent_default()
+                    self.show_message(f"🔄 Retrying object {object_index + 1}: {object_name}", "info")
                 else:
                     self.show_message(f"No object at position {object_index + 1}", "warning")
+                    event.prevent_default()
             except ValueError:
-                # Not a valid retry key
+                # Not a valid retry key combination
                 pass
-        
-        # Let other keys be handled normally if not a retry key
-        if not (event.key.startswith('r') and len(event.key) > 1):
-            return  # Don't prevent default for non-retry keys
     
     def show_message(self, message: str, msg_type: str = "info") -> None:
         """
@@ -377,8 +377,7 @@ class LiterateApp(App):
         
         for i, obj in enumerate(display_objects, 1):
             # Object card with rounded border effect and retry link
-            # Use a simpler approach with keyboard shortcuts for now
-            objects_log.write(f"[bold $success]┌─ {i}. {obj.name}[/bold $success] [dim]([link=retry]🔄 press r{i} to retry[/link])[/dim]")
+            objects_log.write(f"[bold $success]┌─ {i}. {obj.name}[/bold $success] [dim]([link=retry]🔄 press Ctrl+{i} to retry[/link])[/dim]")
             
             # Description with better formatting (truncate if too long)
             description = obj.description
