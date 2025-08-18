@@ -263,28 +263,34 @@ class LiterateApp(App):
     async def _debounced_process_text(self, text: str) -> None:
         """Process text after debounce delay."""
         try:
-            # Wait for the debounce period
-            await asyncio.sleep(self.DEBOUNCE_SECONDS)
+            # Wait for the debounce period with countdown
+            for i in range(int(self.DEBOUNCE_SECONDS), 0, -1):
+                self.show_message(f"⏳ Analysis starts in {i}s... (type to reset)", "info")
+                await asyncio.sleep(1)
             
             # Check if we're already processing
             if self.is_processing:
-                self.show_message("Already processing previous request...", "warning")
+                self.show_message("⚠️ Already processing previous request - please wait...", "warning")
                 return
             
             # Start processing
             self.is_processing = True
-            self.show_message("🤖 Analyzing text with LLM...", "info")
+            self.show_message("🤖 Analyzing text with LLM... ⚡", "info")
+            self._show_loading_indicator()
             
             # Call LLM in a separate thread to avoid blocking
             await self._process_with_llm(text)
             
         except asyncio.CancelledError:
             # Task was cancelled due to new input
-            self.show_message("Analysis cancelled - new input detected", "info")
+            self.show_message("⚡ Analysis cancelled - new input detected", "info")
+            self._hide_loading_indicator()
         except Exception as e:
-            self.show_message(f"Error in debounce processing: {e}", "error")
+            self.show_message(f"❌ Error in debounce processing: {e}", "error")
+            self._hide_loading_indicator()
         finally:
             self.is_processing = False
+            self._hide_loading_indicator()
     
     async def _process_with_llm(self, text: str) -> None:
         """Process text with LLM in a non-blocking way."""
@@ -344,10 +350,26 @@ class LiterateApp(App):
         else:
             # Show error
             error_msg = result.get("error", "Unknown error")
-            self.show_message(f"Analysis failed: {error_msg}", "error")
+            self.show_message(f"❌ Analysis failed: {error_msg}", "error")
             
             # Still update display with current objects
             self.update_objects_display(result["objects"])
+    
+    def _show_loading_indicator(self) -> None:
+        """Show loading indicator in objects display."""
+        try:
+            objects_log = self.query_one("#objects_display", RichLog)
+            objects_log.write("[bold yellow]🔄 Processing with LLM...[/bold yellow]")
+            objects_log.write("[dim]Please wait while we extract narrative objects...[/dim]")
+        except:
+            # UI not ready, skip
+            pass
+    
+    def _hide_loading_indicator(self) -> None:
+        """Hide loading indicator - will be replaced by results."""
+        # Loading indicator will be cleared when results are displayed
+        # No explicit action needed as update_objects_display clears the log
+        pass
 
 
 class LiterateScreen(Screen):
