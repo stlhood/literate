@@ -91,6 +91,7 @@ class LiterateApp(App):
         background: $surface;
         scrollbar-background: $panel;
         scrollbar-color: $primary;
+        wrap: auto;
     }
     
     #error_display {
@@ -304,6 +305,47 @@ class LiterateApp(App):
                 # Not a valid retry key combination
                 pass
     
+    def _wrap_description(self, text: str, max_width: int = 35) -> List[str]:
+        """
+        Wrap text description to fit within the display width.
+        
+        Args:
+            text: Text to wrap
+            max_width: Maximum characters per line
+            
+        Returns:
+            List of wrapped lines
+        """
+        if len(text) <= max_width:
+            return [text]
+        
+        words = text.split()
+        lines = []
+        current_line = []
+        current_length = 0
+        
+        for word in words:
+            # Check if adding this word would exceed the line width
+            word_length = len(word)
+            space_length = 1 if current_line else 0
+            
+            if current_length + space_length + word_length <= max_width:
+                # Word fits on current line
+                current_line.append(word)
+                current_length += space_length + word_length
+            else:
+                # Start new line
+                if current_line:
+                    lines.append(" ".join(current_line))
+                current_line = [word]
+                current_length = word_length
+        
+        # Add remaining words
+        if current_line:
+            lines.append(" ".join(current_line))
+        
+        return lines if lines else [text]
+    
     def show_message(self, message: str, msg_type: str = "info") -> None:
         """
         Display a message in the error panel.
@@ -379,11 +421,15 @@ class LiterateApp(App):
             # Object card with rounded border effect and retry link
             objects_log.write(f"[bold $success]┌─ {i}. {obj.name}[/bold $success] [dim]([link=retry]🔄 press Ctrl+{i} to retry[/link])[/dim]")
             
-            # Description with better formatting (truncate if too long)
+            # Description with word wrapping and proper indentation
             description = obj.description
-            if len(description) > 120:
-                description = description[:117] + "..."
-            objects_log.write(f"[dim]│[/dim] [italic $text-muted]{description}[/italic $text-muted]")
+            # Split long descriptions into multiple lines with proper indentation
+            description_lines = self._wrap_description(description, max_width=35)
+            for j, line in enumerate(description_lines):
+                if j == 0:
+                    objects_log.write(f"[dim]│[/dim] [italic $text-muted]{line}[/italic $text-muted]")
+                else:
+                    objects_log.write(f"[dim]│[/dim] [italic $text-muted]  {line}[/italic $text-muted]")
             
             # Relationships with tree structure (limit to prevent clutter)
             if obj.relationships:
