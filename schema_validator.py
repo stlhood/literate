@@ -191,17 +191,17 @@ class SchemaValidator:
         if name is None or not isinstance(name, str):
             return None
         name = name.strip()
-        if not name or len(name) > 100:
+        if not name or len(name) > 100 or name.lower() in ['string', 'exactnamefromtext', 'object', 'person', 'character']:
             return None
         
         # Extract and validate description
         description = obj.get("description")
         if description is None or not isinstance(description, str):
-            description = f"A {name.lower()} mentioned in the text."
+            description = f"Character/object mentioned in the narrative."
         else:
             description = description.strip()
-            if not description:
-                description = f"A {name.lower()} mentioned in the text."
+            if not description or description.lower() in ['string', 'one sentence description', 'brief description based only on what the text says']:
+                description = f"Character/object mentioned in the narrative."
         if len(description) > 500:
             description = description[:497] + "..."
         

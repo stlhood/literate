@@ -51,28 +51,30 @@ class LLMClient:
     
     def _create_extraction_prompt(self, text: str) -> str:
         """Create the prompt for narrative object extraction."""
-        return f"""Analyze the following text and extract narrative objects (people, characters, places, events) and their relationships.
+        return f"""Extract narrative objects ONLY from this text. Do not add any objects not explicitly mentioned.
 
-Return ONLY valid JSON in this exact format with no extra text:
+Text: "{text}"
+
+Return valid JSON with this structure:
 {{
   "objects": [
     {{
-      "name": "ObjectName",
-      "description": "One sentence description.",
+      "name": "string",
+      "description": "string", 
       "relationships": []
     }}
   ]
 }}
 
-Important rules:
-- Only include objects clearly mentioned in the text
-- Use actual object names for relationships, not "OtherObjectName"
+RULES:
+- Only extract people, places, or objects directly mentioned in the text
+- Use the exact names from the text (e.g., if text says "Alice", use "Alice")  
+- Descriptions must be based only on information in the text
+- Never use generic names like "person", "object", "character"
+- Never use placeholder descriptions like "One sentence description"
 - If no clear relationships exist, use empty relationships array
-- Keep descriptions under 100 characters
-- Return only the JSON, no markdown formatting
 
-Text to analyze:
-{text}"""
+Return only the JSON:"""
     
     def _call_ollama(self, prompt: str) -> Dict[str, Any]:
         """
@@ -85,6 +87,7 @@ Text to analyze:
             The API response as a dictionary
         """
         url = f"{self.base_url}/api/generate"
+        
         payload = {
             "model": self.model,
             "prompt": prompt,
