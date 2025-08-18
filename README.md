@@ -40,3 +40,4 @@ Literate is a tool that uses a locally-running LLM to extract meaning and struct
 - Commit every batch of changes as you go.
 - Do not commit any node modules to git.
 - Use Python best practices and tools, like venv.
+- Be sure to have a separate early phase of development that is just about making sure the local LLM is working, responding to calls, and returning results.
