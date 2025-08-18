@@ -5,15 +5,31 @@ from textual.app import App, ComposeResult
 from textual.widgets import TextArea, Static, RichLog
 from textual.containers import Horizontal, Vertical, ScrollableContainer
 from textual.screen import Screen
+from textual.message import Message
 from rich.text import Text
 from rich.panel import Panel
 from rich.console import Group
 from typing import List
+import asyncio
+from datetime import datetime
 from models import NarrativeObject
+from object_manager import ObjectManager
+from llm_client import LLMClient
 
 
 class LiterateApp(App):
     """Main TUI application for Literate."""
+    
+    # Class variables for debouncing
+    DEBOUNCE_SECONDS = 3.0
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.object_manager = ObjectManager()
+        self.llm_client = LLMClient()
+        self.debounce_task = None
+        self.last_text = ""
+        self.is_processing = False
     
     CSS = """
     Screen {
@@ -122,8 +138,12 @@ class LiterateApp(App):
         self.query_one("#text_input", TextArea).focus()
         
         # Initialize displays
-        self.show_message("Ready to analyze text...", "info")
-        self.update_objects_display([])
+        try:
+            self.show_message("Ready to analyze text...", "info")
+            self.update_objects_display([])
+        except Exception as e:
+            # Fallback if UI not ready yet
+            pass
     
     def action_quit(self) -> None:
         """Action to quit the application."""
@@ -137,7 +157,11 @@ class LiterateApp(App):
             message: Message to display
             msg_type: Type of message (info, warning, error, success)
         """
-        error_log = self.query_one("#error_display", RichLog)
+        try:
+            error_log = self.query_one("#error_display", RichLog)
+        except:
+            # UI not ready yet, skip message
+            return
         
         # Color based on message type
         if msg_type == "error":
@@ -206,6 +230,124 @@ class LiterateApp(App):
         """Set text in the input area."""
         text_area = self.query_one("#text_input", TextArea)
         text_area.text = text
+    
+    def on_text_area_changed(self, event: TextArea.Changed) -> None:
+        """Handle text area change events with debouncing."""
+        if event.text_area.id != "text_input":
+            return
+        
+        current_text = event.text_area.text
+        
+        # Skip if text hasn't actually changed
+        if current_text == self.last_text:
+            return
+        
+        self.last_text = current_text
+        
+        # Cancel existing debounce task
+        if self.debounce_task:
+            self.debounce_task.cancel()
+        
+        # Don't process empty text
+        if not current_text.strip():
+            self.update_objects_display([])
+            self.show_message("Enter text to begin analysis...", "info")
+            return
+        
+        # Show that we're waiting for more input
+        self.show_message(f"Text changed... waiting {self.DEBOUNCE_SECONDS}s for more input", "info")
+        
+        # Schedule new debounce task
+        self.debounce_task = asyncio.create_task(self._debounced_process_text(current_text))
+    
+    async def _debounced_process_text(self, text: str) -> None:
+        """Process text after debounce delay."""
+        try:
+            # Wait for the debounce period
+            await asyncio.sleep(self.DEBOUNCE_SECONDS)
+            
+            # Check if we're already processing
+            if self.is_processing:
+                self.show_message("Already processing previous request...", "warning")
+                return
+            
+            # Start processing
+            self.is_processing = True
+            self.show_message("🤖 Analyzing text with LLM...", "info")
+            
+            # Call LLM in a separate thread to avoid blocking
+            await self._process_with_llm(text)
+            
+        except asyncio.CancelledError:
+            # Task was cancelled due to new input
+            self.show_message("Analysis cancelled - new input detected", "info")
+        except Exception as e:
+            self.show_message(f"Error in debounce processing: {e}", "error")
+        finally:
+            self.is_processing = False
+    
+    async def _process_with_llm(self, text: str) -> None:
+        """Process text with LLM in a non-blocking way."""
+        try:
+            # Run LLM processing in thread pool to avoid blocking
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                loop = asyncio.get_event_loop()
+                
+                # Get LLM response
+                response = await loop.run_in_executor(
+                    executor, 
+                    self._get_llm_response, 
+                    text
+                )
+                
+                # Process the response
+                result = await loop.run_in_executor(
+                    executor, 
+                    self.object_manager.process_text_update, 
+                    text, 
+                    response
+                )
+                
+                # Update UI on main thread
+                self._update_ui_from_result(result)
+                
+        except Exception as e:
+            self.show_message(f"Error processing with LLM: {e}", "error")
+    
+    def _get_llm_response(self, text: str) -> str:
+        """Get response from LLM - runs in thread pool."""
+        try:
+            prompt = self.llm_client._create_extraction_prompt(text)
+            response = self.llm_client._call_ollama(prompt)
+            return response.get("response", "")
+        except Exception as e:
+            raise Exception(f"LLM call failed: {e}")
+    
+    def _update_ui_from_result(self, result: dict) -> None:
+        """Update UI based on processing result."""
+        if result["success"]:
+            objects = result["objects"]
+            stats = result["stats"]
+            
+            # Update object display
+            self.update_objects_display(objects)
+            
+            # Show success message with stats
+            added = stats["added"]
+            updated = stats["updated"] 
+            removed = stats["removed"]
+            total = result["total_count"]
+            
+            message = f"✅ Analysis complete: {total} objects ({added} added, {updated} updated, {removed} removed)"
+            self.show_message(message, "success")
+        else:
+            # Show error
+            error_msg = result.get("error", "Unknown error")
+            self.show_message(f"Analysis failed: {error_msg}", "error")
+            
+            # Still update display with current objects
+            self.update_objects_display(result["objects"])
 
 
 class LiterateScreen(Screen):
