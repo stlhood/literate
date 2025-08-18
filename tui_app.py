@@ -195,6 +195,10 @@ class LiterateApp(App):
     
     def on_mount(self) -> None:
         """Called when the app is mounted."""
+        # Explicitly disable mouse tracking at terminal level
+        import os
+        os.system('printf "\\033[?1000l\\033[?1002l\\033[?1003l\\033[?1006l"')
+        
         # Focus the text input area
         self.query_one("#text_input", TextArea).focus()
         
@@ -234,6 +238,9 @@ class LiterateApp(App):
         except Exception as e:
             print(f"Error during shutdown: {e}")
         finally:
+            # Disable mouse tracking on exit
+            import os
+            os.system('printf "\\033[?1000l\\033[?1002l\\033[?1003l\\033[?1006l"')
             # Exit the application
             self.exit()
     
