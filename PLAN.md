@@ -31,13 +31,13 @@ Build a Python TUI application that extracts narrative objects from free text us
 - [x] 1.8: Validate that gemma3:270m model returns expected JSON schema
 
 ### Phase 2: Data Models and Object Management
-- [ ] 2.1: Define NarrativeObject and Relationship data classes
-- [ ] 2.2: Create JSON schema for LLM response validation
-- [ ] 2.3: Implement narrative object parser from LLM responses
-- [ ] 2.4: Build object manager for state persistence
-- [ ] 2.5: Implement object merging logic (add, remove, update)
-- [ ] 2.6: Test object merging with various scenarios
-- [ ] 2.7: Add comprehensive error handling for malformed responses
+- [x] 2.1: Define NarrativeObject and Relationship data classes
+- [x] 2.2: Create JSON schema for LLM response validation
+- [x] 2.3: Implement narrative object parser from LLM responses
+- [x] 2.4: Build object manager for state persistence
+- [x] 2.5: Implement object merging logic (add, remove, update)
+- [x] 2.6: Test object merging with various scenarios
+- [x] 2.7: Add comprehensive error handling for malformed responses
 
 ### Phase 3: TUI Framework Setup
 - [ ] 3.1: Research and select TUI library (Rich, Textual, or similar)

@@ -4,22 +4,8 @@ LLM Client for communicating with Ollama API server.
 import json
 import requests
 from typing import Dict, List, Optional, Any
-from dataclasses import dataclass
-
-
-@dataclass
-class NarrativeObject:
-    """Represents a narrative object extracted from text."""
-    name: str
-    description: str
-    relationships: List['Relationship']
-
-
-@dataclass
-class Relationship:
-    """Represents a relationship between narrative objects."""
-    target: str
-    description: str
+from models import NarrativeObject, Relationship
+from narrative_parser import NarrativeParser
 
 
 class LLMClient:
@@ -36,6 +22,7 @@ class LLMClient:
         self.base_url = base_url.rstrip('/')
         self.model = model
         self.timeout = 30  # seconds
+        self.parser = NarrativeParser()
     
     def extract_narrative_objects(self, text: str) -> List[NarrativeObject]:
         """
@@ -60,7 +47,7 @@ class LLMClient:
         
         prompt = self._create_extraction_prompt(text)
         response = self._call_ollama(prompt)
-        return self._parse_response(response)
+        return self.parser.parse_llm_response(response.get("response", ""))
     
     def _create_extraction_prompt(self, text: str) -> str:
         """Create the prompt for narrative object extraction."""
@@ -121,67 +108,6 @@ Text to analyze:
         except requests.exceptions.RequestException as e:
             raise ConnectionError(f"Request to Ollama server failed: {e}")
     
-    def _parse_response(self, response: Dict[str, Any]) -> List[NarrativeObject]:
-        """
-        Parse the Ollama API response into NarrativeObject instances.
-        
-        Args:
-            response: The raw API response
-            
-        Returns:
-            List of parsed NarrativeObject instances
-        """
-        try:
-            # Extract the generated response text
-            response_text = response.get("response", "")
-            if not response_text:
-                return []
-            
-            # Strip markdown code blocks if present
-            response_text = response_text.strip()
-            if response_text.startswith("```json"):
-                response_text = response_text[7:]  # Remove ```json
-            if response_text.startswith("```"):
-                response_text = response_text[3:]   # Remove ```
-            if response_text.endswith("```"):
-                response_text = response_text[:-3]  # Remove trailing ```
-            response_text = response_text.strip()
-            
-            # Parse the JSON response
-            parsed_json = json.loads(response_text)
-            
-            # Validate structure
-            if "objects" not in parsed_json:
-                raise ValueError("Response missing 'objects' field")
-            
-            objects = []
-            for obj_data in parsed_json["objects"]:
-                # Parse relationships
-                relationships = []
-                for rel_data in obj_data.get("relationships", []):
-                    relationships.append(Relationship(
-                        target=rel_data["target"],
-                        description=rel_data["description"]
-                    ))
-                
-                # Create narrative object
-                obj = NarrativeObject(
-                    name=obj_data["name"],
-                    description=obj_data["description"],
-                    relationships=relationships
-                )
-                objects.append(obj)
-            
-            return objects
-            
-        except json.JSONDecodeError as e:
-            print(f"JSON parsing failed. Response text: '{response_text[:200]}...'")
-            # Return empty list on JSON parsing failure instead of crashing
-            return []
-        except KeyError as e:
-            raise ValueError(f"Missing required field in response: {e}")
-        except Exception as e:
-            raise ValueError(f"Unexpected error parsing response: {e}")
     
     def test_connection(self) -> bool:
         """
