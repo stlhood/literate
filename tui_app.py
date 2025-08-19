@@ -421,7 +421,7 @@ class LiterateApp(App):
     
     def show_message(self, message: str, msg_type: str = "info") -> None:
         """
-        Display a message in the error panel.
+        Display a message in the error panel with word wrapping.
         
         Args:
             message: Message to display
@@ -436,24 +436,46 @@ class LiterateApp(App):
         from datetime import datetime
         timestamp = datetime.now().strftime("%H:%M:%S")
         
-        # Enhanced styling based on message type
+        # Determine styling based on message type
         if msg_type == "error":
             icon = "🔴"
             style_class = "status_error"
-            formatted_message = f"[dim]{timestamp}[/dim] [{style_class}]{icon} {message}[/{style_class}]"
+            style_tags = f"[{style_class}]", f"[/{style_class}]"
         elif msg_type == "warning":
             icon = "🟡"
             style_class = "status_processing"
-            formatted_message = f"[dim]{timestamp}[/dim] [{style_class}]{icon} {message}[/{style_class}]"
+            style_tags = f"[{style_class}]", f"[/{style_class}]"
         elif msg_type == "success":
             icon = "🟢"
             style_class = "status_success"
-            formatted_message = f"[dim]{timestamp}[/dim] [{style_class}]{icon} {message}[/{style_class}]"
+            style_tags = f"[{style_class}]", f"[/{style_class}]"
         else:  # info
             icon = "🔵"
-            formatted_message = f"[dim]{timestamp}[/dim] [blue]{icon} {message}[/blue]"
+            style_tags = "[blue]", "[/blue]"
         
-        error_log.write(formatted_message)
+        # Create the prefix (timestamp + icon)
+        prefix = f"[dim]{timestamp}[/dim] {style_tags[0]}{icon} "
+        suffix = style_tags[1]
+        
+        # Calculate available width for message text (subtract prefix and suffix length)
+        # Approximate character width for the message panel (smaller than objects panel)
+        max_message_width = 25  # Adjust based on panel size
+        prefix_length = len(timestamp) + 3  # timestamp + space + icon + space
+        available_width = max_message_width - prefix_length
+        
+        # Wrap the message text
+        wrapped_lines = self._wrap_description(message, max_width=available_width)
+        
+        # Write the first line with full prefix
+        if wrapped_lines:
+            first_line = f"{prefix}{wrapped_lines[0]}{suffix}"
+            error_log.write(first_line)
+            
+            # Write subsequent lines with indentation to align with message text
+            indent = " " * (prefix_length)
+            for line in wrapped_lines[1:]:
+                indented_line = f"[dim]{indent}[/dim]{style_tags[0]}{line}{suffix}"
+                error_log.write(indented_line)
     
     def update_objects_display(self, objects: List[NarrativeObject]) -> None:
         """
