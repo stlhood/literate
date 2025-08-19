@@ -16,8 +16,11 @@ Literate is a Python-based command-line tool that uses a locally-running LLM to 
 # Activate virtual environment
 source venv/bin/activate
 
-# Run the main application
+# Run with local Ollama model (default)
 python main.py
+
+# Run with OpenAI API (requires .env file with OPENAI_API_KEY)
+python main.py --openai
 ```
 
 ### Testing
@@ -37,6 +40,9 @@ python test_debounce.py
 
 # Test error handling
 python test_error_handling.py
+
+# Test both provider integrations
+python test_providers.py
 ```
 
 ### Environment Setup
@@ -46,6 +52,10 @@ python -m venv venv
 
 # Install dependencies
 pip install -r requirements.txt
+
+# For OpenAI API support (optional)
+cp .env.example .env
+# Edit .env and add your OPENAI_API_KEY
 ```
 
 ## Architecture
@@ -88,15 +98,26 @@ This project follows a specific development approach outlined in README.md and P
 
 - `requests>=2.31.0` - HTTP client for Ollama API
 - `textual>=0.41.0` - Modern TUI framework with rich styling
+- `openai>=1.0.0` - OpenAI API client (optional)
+- `python-dotenv>=1.0.0` - Environment variable loading (optional)
 - Python 3.7+ with dataclasses, typing, asyncio
 
 ## LLM Integration
 
+### Ollama (Default)
 - **Server**: Ollama at localhost:11434
 - **Model**: gemma3:1b (switched from originally planned gemma3:270m)
+- **Usage**: `python main.py` (default)
+
+### OpenAI API (Optional)
+- **Model**: gpt-3.5-turbo (configurable via OPENAI_MODEL env var)
+- **Setup**: Add OPENAI_API_KEY to .env file
+- **Usage**: `python main.py --openai`
+
+### Common Settings
 - **Prompt**: Structured to extract JSON with objects containing name, description, relationships
 - **Timeout**: 30 seconds for API calls
-- **Temperature**: 0.1 for consistent responses
+- **Temperature**: 0.1 for consistent responses (configurable via OPENAI_TEMPERATURE)
 
 ## Testing Strategy
 

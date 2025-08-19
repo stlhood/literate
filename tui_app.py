@@ -34,10 +34,12 @@ class LiterateApp(App):
         """Disable mouse tracking."""
         return False
     
-    def __init__(self, **kwargs):
+    def __init__(self, llm_provider: str = "ollama", **kwargs):
+        # Extract llm_provider before passing to super()
         super().__init__(**kwargs)
+        self.llm_provider = llm_provider
         self.object_manager = ObjectManager()
-        self.llm_client = LLMClient()
+        self.llm_client = LLMClient(provider=llm_provider)
         self.debounce_task = None
         self.last_text = ""
         self.is_processing = False
@@ -205,7 +207,8 @@ class LiterateApp(App):
         
         # Initialize displays
         try:
-            self.show_message("Ready to analyze text...", "info")
+            provider_display = "OpenAI API" if self.llm_provider == "openai" else "Ollama (local)"
+            self.show_message(f"Ready to analyze text using {provider_display}...", "info")
             self.show_message("💡 Tip: Use Ctrl+1, Ctrl+2, etc. to retry individual objects", "info")
             self.show_message("🚪 Exit with Ctrl+C or Ctrl+Q", "info")
             self.update_objects_display([])
