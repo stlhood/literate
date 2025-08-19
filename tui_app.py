@@ -457,11 +457,21 @@ class LiterateApp(App):
         prefix = f"[dim]{timestamp}[/dim] {style_tags[0]}{icon} "
         suffix = style_tags[1]
         
-        # Calculate available width for message text (subtract prefix and suffix length)
-        # Approximate character width for the message panel (smaller than objects panel)
-        max_message_width = 25  # Adjust based on panel size
+        # Calculate available width for message text based on actual panel size
+        try:
+            # Get the actual width of the error display panel
+            error_container = self.query_one("#error_container")
+            panel_width = error_container.size.width
+            
+            # Account for padding and borders (typically 2-4 chars total)
+            usable_width = max(panel_width - 4, 20)  # Minimum 20 chars
+        except:
+            # Fallback if we can't get panel dimensions
+            usable_width = 40  # Reasonable default
+        
+        # Calculate space needed for timestamp and icon prefix
         prefix_length = len(timestamp) + 3  # timestamp + space + icon + space
-        available_width = max_message_width - prefix_length
+        available_width = max(usable_width - prefix_length, 10)  # Minimum 10 chars for message
         
         # Wrap the message text
         wrapped_lines = self._wrap_description(message, max_width=available_width)
