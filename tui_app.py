@@ -43,6 +43,8 @@ class LiterateApp(App):
         self.is_processing = False
         self.current_input_text = ""  # Store for retry functionality
         self.displayed_objects = []  # Store currently displayed objects for retry
+        self.placeholder_text = "Enter or paste your text here...\nPress Ctrl+C or Ctrl+Q to exit."
+        self.placeholder_cleared = False  # Track if placeholder has been cleared
         self._setup_signal_handlers()
     
     CSS = """
@@ -177,7 +179,7 @@ class LiterateApp(App):
             with Vertical(id="text_input_container"):
                 yield Static("📝 Text Input", classes="panel_title")
                 yield TextArea(
-                    text="Enter or paste your text here...\nPress Ctrl+C or Ctrl+Q to exit.",
+                    text=self.placeholder_text,
                     id="text_input"
                 )
             
@@ -339,6 +341,18 @@ class LiterateApp(App):
             event.prevent_default()
             self._graceful_exit()
             return
+        
+        # Clear placeholder text on first keypress (if focused on text input)
+        if not self.placeholder_cleared:
+            focused = self.focused
+            if focused and focused.id == "text_input":
+                # Check if it's a regular typing key (not navigation keys)
+                if (len(event.key) == 1 or 
+                    event.key in ['space', 'enter', 'backspace', 'delete', 'tab']):
+                    text_area = self.query_one("#text_input", TextArea)
+                    if text_area.text == self.placeholder_text:
+                        text_area.text = ""
+                        self.placeholder_cleared = True
         
         # Check for Ctrl+number combinations for retry
         if event.key.startswith('ctrl+') and len(event.key) > 5:
@@ -530,6 +544,17 @@ class LiterateApp(App):
             return
         
         current_text = event.text_area.text
+        
+        # Clear placeholder text on first user input
+        if not self.placeholder_cleared and current_text != self.placeholder_text:
+            # User has started typing/pasting - check if they're modifying the placeholder
+            if current_text.startswith(self.placeholder_text) or self.placeholder_text.startswith(current_text):
+                # User is editing the placeholder text, clear it completely
+                event.text_area.text = ""
+                current_text = ""
+                self.placeholder_cleared = True
+            elif current_text.strip():  # User pasted something completely different
+                self.placeholder_cleared = True
         
         # Skip if text hasn't actually changed
         if current_text == self.last_text:
