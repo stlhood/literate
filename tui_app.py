@@ -674,9 +674,20 @@ class LiterateApp(App):
     def _get_llm_response(self, text: str) -> str:
         """Get response from LLM - runs in thread pool."""
         try:
+            # Use the public interface which handles both providers
+            objects = self.llm_client.extract_narrative_objects(text)
+            # Since we need the raw response for the object manager, 
+            # we'll need to reconstruct it from the parsed objects
+            # But actually, let's modify this to work with the existing flow
+            
             prompt = self.llm_client._create_extraction_prompt(text)
-            response = self.llm_client._call_ollama(prompt)
-            return response.get("response", "")
+            
+            if self.llm_client.provider == "openai":
+                response = self.llm_client._call_openai(prompt)
+                return response
+            else:
+                response = self.llm_client._call_ollama(prompt)
+                return response.get("response", "")
         except Exception as e:
             raise Exception(f"LLM call failed: {e}")
     
