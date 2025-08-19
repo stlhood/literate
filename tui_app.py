@@ -177,7 +177,7 @@ class LiterateApp(App):
             with Vertical(id="text_input_container"):
                 yield Static("📝 Text Input", classes="panel_title")
                 yield TextArea(
-                    text="Enter or paste your text here...\nPress Ctrl+C to exit.",
+                    text="Enter or paste your text here...\nPress Ctrl+C or Ctrl+Q to exit.",
                     id="text_input"
                 )
             
@@ -195,9 +195,8 @@ class LiterateApp(App):
     
     def on_mount(self) -> None:
         """Called when the app is mounted."""
-        # Explicitly disable mouse tracking at terminal level
-        import os
-        os.system('printf "\\033[?1000l\\033[?1002l\\033[?1003l\\033[?1006l"')
+        # Comprehensive mouse tracking disable at startup
+        self._cleanup_terminal_state()
         
         # Focus the text input area
         self.query_one("#text_input", TextArea).focus()
@@ -206,6 +205,7 @@ class LiterateApp(App):
         try:
             self.show_message("Ready to analyze text...", "info")
             self.show_message("💡 Tip: Use Ctrl+1, Ctrl+2, etc. to retry individual objects", "info")
+            self.show_message("🚪 Exit with Ctrl+C or Ctrl+Q", "info")
             self.update_objects_display([])
         except Exception as e:
             # Fallback if UI not ready yet
@@ -221,7 +221,7 @@ class LiterateApp(App):
         signal.signal(signal.SIGINT, signal_handler)
     
     def _graceful_exit(self) -> None:
-        """Perform graceful shutdown."""
+        """Perform graceful shutdown with comprehensive cleanup."""
         try:
             # Cancel any pending debounce task
             if self.debounce_task and not self.debounce_task.done():
@@ -236,13 +236,49 @@ class LiterateApp(App):
                 self.show_message("💾 Data saved", "success")
             
         except Exception as e:
-            print(f"Error during shutdown: {e}")
+            print(f"Error during shutdown: {e}", file=sys.stderr)
         finally:
-            # Disable mouse tracking on exit
-            import os
-            os.system('printf "\\033[?1000l\\033[?1002l\\033[?1003l\\033[?1006l"')
+            # Comprehensive mouse tracking cleanup to prevent control character leakage
+            self._cleanup_terminal_state()
             # Exit the application
             self.exit()
+    
+    def _cleanup_terminal_state(self) -> None:
+        """Clean up terminal state to prevent mouse control character leakage."""
+        try:
+            import os
+            import sys
+            
+            # Comprehensive mouse tracking disable sequence
+            # This covers all major mouse tracking modes that could leak control chars
+            cleanup_sequence = (
+                "\033[?1000l"  # Disable X10 mouse reporting
+                "\033[?1001l"  # Disable highlight mouse tracking
+                "\033[?1002l"  # Disable cell motion mouse tracking  
+                "\033[?1003l"  # Disable all motion mouse tracking
+                "\033[?1004l"  # Disable focus in/out events
+                "\033[?1005l"  # Disable UTF-8 mouse mode
+                "\033[?1006l"  # Disable SGR extended mouse mode
+                "\033[?1015l"  # Disable urxvt extended mouse mode
+                "\033[?25h"    # Show cursor (re-enable if hidden)
+                "\033[0m"      # Reset all text attributes
+            )
+            
+            # Write directly to stderr to bypass any TUI handling
+            sys.stderr.write(cleanup_sequence)
+            sys.stderr.flush()
+            
+            # Also use os.system as backup (the original approach)
+            os.system('printf "\\033[?1000l\\033[?1002l\\033[?1003l\\033[?1006l\\033[?25h"')
+            
+        except Exception as e:
+            # If cleanup fails, at least try basic reset
+            try:
+                import sys
+                sys.stderr.write("\033[0m\033[?25h")
+                sys.stderr.flush()
+            except:
+                pass
     
     def action_quit(self) -> None:
         """Action to quit the application."""
@@ -297,7 +333,13 @@ class LiterateApp(App):
             self.is_processing = False
     
     def on_key(self, event: Key) -> None:
-        """Handle key presses for retry functionality."""
+        """Handle key presses for retry functionality and exit handling."""
+        # Handle Control-Q for exit
+        if event.key == 'ctrl+q':
+            event.prevent_default()
+            self._graceful_exit()
+            return
+        
         # Check for Ctrl+number combinations for retry
         if event.key.startswith('ctrl+') and len(event.key) > 5:
             try:
