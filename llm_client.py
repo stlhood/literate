@@ -53,6 +53,9 @@ class LLMClient:
             # Initialize OpenAI client
             self.client = openai.OpenAI(api_key=self.api_key)
             
+            # Set base_url to None for OpenAI (not used but prevents attribute errors)
+            self.base_url = None
+            
         else:  # ollama
             self.base_url = base_url.rstrip('/')
             self.model = model or "gemma3:1b"
