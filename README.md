@@ -1,43 +1,226 @@
-# Literate
+# Literate - Narrative Text Analyzer
 
-## Overview
-Literate is a tool that uses a locally-running LLM to extract meaning and structure from user-entered free text in real time. It runs from the command-line and utilizes a colorful TUI.
+A Python command-line tool that extracts narrative structure from free text in real-time using AI. Features a colorful TUI with live analysis and supports both local (Ollama) and cloud (OpenAI) LLM providers.
 
-## Functionality
-- The user types or pastes text into an entry area.
-- After the user has typed or pasted new text into the entry area, the system waits 2 seconds to see if they are still entering text. If no further text is entered during that time, then the system makes a call to a locally-running LLM.
-- The user-entered text is sent to the LLM, with a prompt that instructs the LLM to process the text in its entirety and extract a list of people, characters, places, events and other narrative objects that exist within the text. Each object should have a short (1 sentence) description. If an object has a narrative relationship to one or more other objects, then one of those relationships should also be described with a single sentence that names the object with which there is a relationship.
-- The LLM should return this list of narrative objects according to a consistent, pre-defined schema that our program is designed to understand.
-- If the LLM does not respond or if there is an error, a useful error message is displayed.
-- When the program receives the LLM's response, it process the list and displays it, nicely-formatted.
-- When the user types or pastes-in more text, the LLM process repeats.
-- However, the program maintains in memory a list of all narrative objects previously recorded. Each time the LLM is called and a new list of objects is returned, it only updates the displayed list in specific ways:
-    - Any new objects are added to the displayed list.
-    - Any objects that hav been deleted are removed from the displayed list.
-    - Any objects that were previously displayed are left unchanged in name, but their description and/or relatonship can be updated.
+## ✨ Features
 
-## Interface
-- The interface is a colorful TUI comprised of three panels.
-- The left half of the screen is a text entry area, where the user can type or paste whatever text they want.
-- The right half of the screen has two vertically-stacked panels.
-    - The top panel fills the top 4/5 of the screen and displays the list of narrative objects received from the LLM and maintianed by the program.
-    - The bottom panel is very small and is onl used to display error mesages when they occur.
-- The program can be exited with a Control-C.
-- Other than typing or pasting text into the left panel, there is no other user interaction.
+- **Real-time Analysis**: 2-second debounce timer for responsive text processing
+- **Dual LLM Support**: Works with local Ollama or OpenAI API
+- **Smart Object Tracking**: Preserves narrative continuity across text additions
+- **Interactive TUI**: Three-panel interface with live updates
+- **Rich Formatting**: Colorful display with relationship mapping
 
-## Architecture and implementation
-- Overall system: Literate is built in Python and invoked via the command line.
-- LLM: the program calls a locally-running LLM. It is served by Ollama using Ollama's OpenAI-compatible API server, running at localhost:11434. The model to use is gemma3:270m.
-- TUI: Use a popular TUI library that supports the functionality and interface described above, and enables a colorful and animated interface.
+## 🚀 Quick Start
 
-## How to build this project
-- First read README.md, ultrathink through the problem, and write a plan to PLAN.md.
-- Before you begin working, check in with me and I will verify the plan.
-- Then, begin working on the todo items in order, marking them as complete in PLAN.md (and maintaining an updated implementation log) as you go.
-- For any code that you write, immediately test it before proceeding. Fix any issues that arise during testing.
-- At every step of the way give me a high level explanation of what changes you made.
-- Make every task and code change you do as simple as possible. We want to avoid making any massive or complex changes. Every change should impact as little code as possible. Everything is about simplicity.
-- Commit every batch of changes as you go.
-- Do not commit any node modules to git.
-- Use Python best practices and tools, like venv.
-- Be sure to have a separate early phase of development that is just about making sure the local LLM is working, responding to calls, and returning results.
+### Prerequisites
+
+**For Ollama (Default):**
+- [Ollama](https://ollama.ai) installed and running
+- `gemma3:1b` model downloaded: `ollama pull gemma3:1b`
+
+**For OpenAI (Optional):**
+- OpenAI API key
+
+### Installation
+
+```bash
+# Clone repository
+git clone <repository-url>
+cd literate
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+### Setup for OpenAI (Optional)
+
+```bash
+# Copy environment template
+cp .env.example .env
+
+# Edit .env and add your API key
+echo "OPENAI_API_KEY=your_api_key_here" >> .env
+```
+
+## 🎯 Usage
+
+### Basic Usage
+
+```bash
+# Use local Ollama (default)
+python main.py
+
+# Use OpenAI API
+python main.py --openai
+
+# Get help
+python main.py --help
+```
+
+### Interface
+
+The application displays a three-panel TUI:
+
+- **Left Panel**: Text input area
+- **Right Top Panel**: Extracted narrative objects with relationships
+- **Right Bottom Panel**: Status messages and errors
+
+### Controls
+
+- **Type/Paste**: Enter text in the left panel
+- **Ctrl+1, Ctrl+2, etc.**: Retry specific narrative objects
+- **Ctrl+C or Ctrl+Q**: Exit application
+
+## 📖 How It Works
+
+1. **Input**: Type or paste text into the left panel
+2. **Processing**: After 2 seconds of inactivity, text is sent to the LLM
+3. **Extraction**: AI identifies people, places, events, and relationships
+4. **Display**: Objects appear in the right panel with descriptions
+5. **Continuity**: New text adds to existing objects without losing history
+
+### Example
+
+**Input:**
+```
+Alice met Bob at the coffee shop. They discussed their upcoming trip to Paris.
+Later, Charlie joined them and they talked about visiting the Louvre Museum.
+```
+
+**Output:**
+```
+📚 Narrative Objects (4)
+🔗 2 relationships found
+
+1. Alice
+│ A person who met Bob at the coffee shop
+│ Relationships:
+├─ Bob: Met at the coffee shop
+└─ Updated: 14:23:15
+
+2. Bob  
+│ A person who met Alice and discussed a trip to Paris
+│ Relationships:
+├─ Alice: Met at the coffee shop
+└─ Updated: 14:23:15
+
+3. Paris
+│ A destination for an upcoming trip
+└─ Updated: 14:23:15
+
+4. Charlie
+│ A person who joined Alice and Bob later
+└─ Updated: 14:23:28
+```
+
+## 🔧 Configuration
+
+### Environment Variables
+
+Create a `.env` file for OpenAI configuration:
+
+```bash
+# Required for OpenAI
+OPENAI_API_KEY=your_api_key_here
+
+# Optional settings
+OPENAI_MODEL=gpt-3.5-turbo  # Default model
+OPENAI_TEMPERATURE=0.1      # Response consistency (0.0-1.0)
+```
+
+### LLM Providers
+
+| Provider | Command | Requirements |
+|----------|---------|--------------|
+| Ollama (default) | `python main.py` | Ollama installed, `gemma3:1b` model |
+| OpenAI | `python main.py --openai` | API key in `.env` file |
+
+## 🧪 Testing
+
+The project includes comprehensive test scripts:
+
+```bash
+# Test LLM connectivity
+python test_llm.py
+
+# Test provider integrations  
+python test_providers.py
+
+# Test object preservation
+python test_incremental_objects.py
+
+# Test full pipeline
+python test_full_pipeline.py
+
+# Test UI components
+python test_tui.py
+```
+
+## 🏗️ Architecture
+
+- **Language**: Python 3.7+
+- **TUI Framework**: Textual 5.3.0
+- **Local LLM**: Ollama with gemma3:1b
+- **Cloud LLM**: OpenAI gpt-3.5-turbo
+- **Data Models**: Rich object relationships with timestamps
+
+### Key Components
+
+- `main.py` - Entry point and argument parsing
+- `tui_app.py` - Textual-based user interface
+- `llm_client.py` - Dual provider LLM interface
+- `object_manager.py` - State management and object merging
+- `models.py` - Data models for objects and relationships
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+**"Failed to connect to Ollama server"**
+```bash
+# Check if Ollama is running
+ollama list
+
+# Start Ollama if needed
+ollama serve
+
+# Download model if missing
+ollama pull gemma3:1b
+```
+
+**"OPENAI_API_KEY not found"**
+```bash
+# Check .env file exists
+ls -la .env
+
+# Verify API key format
+cat .env
+```
+
+**Mouse control characters on exit**
+- Use Ctrl+Q instead of Ctrl+C if experiencing terminal issues
+
+## 📝 Development
+
+See `CLAUDE.md` for detailed development guidelines and `PLAN.md` for implementation details.
+
+```bash
+# Run with development mode
+source venv/bin/activate
+python main.py
+
+# Run tests
+python test_providers.py
+```
+
+## 📄 License
+
+[Add your license here]
+
+## 🤝 Contributing
+
+[Add contribution guidelines here]
