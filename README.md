@@ -5,7 +5,7 @@ Literate is a tool that uses a locally-running LLM to extract meaning and struct
 
 ## Functionality
 - The user types or pastes text into an entry area.
-- After the user has typed or pasted new text into the entry area, the system waits 3 seconds to see if they are still entering text. If no further text is entered during that time, then the system makes a call to a locally-running LLM.
+- After the user has typed or pasted new text into the entry area, the system waits 2 seconds to see if they are still entering text. If no further text is entered during that time, then the system makes a call to a locally-running LLM.
 - The user-entered text is sent to the LLM, with a prompt that instructs the LLM to process the text in its entirety and extract a list of people, characters, places, events and other narrative objects that exist within the text. Each object should have a short (1 sentence) description. If an object has a narrative relationship to one or more other objects, then one of those relationships should also be described with a single sentence that names the object with which there is a relationship.
 - The LLM should return this list of narrative objects according to a consistent, pre-defined schema that our program is designed to understand.
 - If the LLM does not respond or if there is an error, a useful error message is displayed.

@@ -59,7 +59,7 @@ pip install -r requirements.txt
 
 ### Data Flow
 1. User types in left panel (TextArea widget)
-2. 3-second debounce timer triggers LLM call
+2. 2-second debounce timer triggers LLM call
 3. Text sent to Ollama with structured prompt
 4. JSON response parsed into NarrativeObject instances
 5. ObjectManager merges new objects with existing state

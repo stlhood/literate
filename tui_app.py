@@ -24,7 +24,7 @@ class LiterateApp(App):
     """Main TUI application for Literate."""
     
     # Class variables for debouncing
-    DEBOUNCE_SECONDS = 3.0
+    DEBOUNCE_SECONDS = 2.0
     
     # Disable mouse tracking to prevent unwanted mouse interactions
     ENABLE_COMMAND_PALETTE = False
