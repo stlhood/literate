@@ -26,13 +26,15 @@ class ObjectManager:
         if save_file and Path(save_file).exists():
             self.load_from_file(save_file)
     
-    def process_text_update(self, text: str, llm_response: str) -> Dict[str, Any]:
+    def process_text_update(self, text: str, llm_response: str, preserve_existing: bool = True) -> Dict[str, Any]:
         """
         Process a text update with LLM response.
         
         Args:
             text: The input text that was analyzed
             llm_response: Raw response from LLM
+            preserve_existing: If True, preserve existing objects not mentioned in new response.
+                             If False, remove objects not in the new response.
             
         Returns:
             Dictionary with update statistics and current objects
@@ -44,8 +46,9 @@ class ObjectManager:
             # Validate relationships
             new_objects = self.parser.validate_relationships(new_objects)
             
-            # Merge with existing objects
-            stats = self.collection.merge_from_list(new_objects)
+            # Merge with existing objects (preserve by default)
+            remove_missing = not preserve_existing
+            stats = self.collection.merge_from_list(new_objects, remove_missing=remove_missing)
             
             # Save state if configured
             if self.save_file:

@@ -152,12 +152,14 @@ class ObjectCollection:
         """Get all objects as a list."""
         return list(self.objects.values())
     
-    def merge_from_list(self, new_objects: List[NarrativeObject]) -> Dict[str, str]:
+    def merge_from_list(self, new_objects: List[NarrativeObject], remove_missing: bool = False) -> Dict[str, str]:
         """
         Merge a list of objects with the current collection.
         
         Args:
             new_objects: List of NarrativeObject instances to merge
+            remove_missing: If True, remove existing objects not in new_objects.
+                          If False (default), preserve all existing objects.
             
         Returns:
             Dict with counts of changes: {"added": 2, "updated": 1, "unchanged": 3}
@@ -168,8 +170,9 @@ class ObjectCollection:
         added = 0
         updated = 0
         unchanged = 0
+        removed = 0
         
-        # Process new objects
+        # Process new objects (add or update existing ones)
         for obj in new_objects:
             if self.add_or_update(obj):
                 if obj.name in current_names:
@@ -179,12 +182,13 @@ class ObjectCollection:
             else:
                 unchanged += 1
         
-        # Remove objects that are no longer present
-        removed_names = current_names - new_names
-        removed = 0
-        for name in removed_names:
-            if self.remove(name):
-                removed += 1
+        # Only remove objects if explicitly requested
+        # This is more conservative - preserves narrative continuity
+        if remove_missing:
+            removed_names = current_names - new_names
+            for name in removed_names:
+                if self.remove(name):
+                    removed += 1
         
         return {
             "added": added,
